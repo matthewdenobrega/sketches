@@ -1,0 +1,429 @@
+<!doctype html>
+<html>
+<head>
+    <title>3D Video City</title>
+</head>
+<body onload="INSPIRATION.init()">
+<canvas id="3dCanvas" style="position:absolute;top:0px;left:0px"></canvas>
+
+<script src="lib/glMatrix-0.9.5.min.js"></script>
+<script src="lib/webgl-utils.js"></script>
+<script src="lib/models5.js"></script>
+<script src="lib/utils5.js"></script>
+<script src="lib/capitecutils.js"></script>
+<script src="lib/jquery-1.8.1.min.js"></script>
+<script type="text/javascript">
+    var videos = [];
+    var viewer;
+
+    var structureInfo = [
+        {//Buildings
+            x:-37, y:0, z:-37,
+            horizontalRotation:0,
+            components:[
+                //{size:50, x:0, y:19, z:0, model:'models/bar.json', texture:'textures/bluetexture.jpg'},
+                {size:1, x:0, y:0.25, z:0, ignoreCollisions: true, model:'models/flatPanel.json', texture:'textures/roadtexture.jpg'},
+                {size:0.5, x:-5, y:0.75, z:-5, ignoreCollisions: true, model:'models/flatPanel2.json', texture:'textures/roadtexture.jpg'}
+            ]
+        },
+        {//lamp posts
+            x:-20, y:7, z:20,
+            horizontalRotation:0,
+            components:[
+                {size:8, x:0, y:0, z:0, model:'models/narrowBar.json', texture:'textures/metaltexture.jpg'}          ,
+                //{size:2, x:0, y:11, z:0, model:'models/sphere.json', texture:'textures/lighttexture.jpg'}
+            ]
+        },
+        {
+            x:20, y:7, z:20,
+            horizontalRotation:0,
+            components:[
+                {size:8, x:0, y:0, z:0, model:'models/narrowBar.json', texture:'textures/metaltexture.jpg'}          ,
+                //{size:2, x:0, y:11, z:0, model:'models/sphere.json', texture:'textures/lighttexture.jpg'}
+            ]
+        },
+        {
+            x:-20, y:7, z:-20,
+            horizontalRotation:0,
+            components:[
+                {size:8, x:0, y:0, z:0, model:'models/narrowBar.json', texture:'textures/metaltexture.jpg'}          ,
+                //{size:2, x:0, y:11, z:0, model:'models/sphere.json', texture:'textures/lighttexture.jpg'}
+            ]
+        },
+        {
+            x:20, y:7, z:-20,
+            horizontalRotation:0,
+            components:[
+                {size:8, x:0, y:0, z:0, model:'models/narrowBar.json', texture:'textures/metaltexture.jpg'}          ,
+                //{size:2, x:0, y:11, z:0, model:'models/sphere.json', texture:'textures/lighttexture.jpg'}
+            ]
+        },
+        {//Map sign
+            x:4, y:0, z:-10,
+            horizontalRotation:-0.2,
+            components:[
+                {size:4, x:-2, y:2, z:0, model:'models/bar.json', texture:'textures/woodtexture.jpg'},
+                {size:4, x:2, y:2, z:0, model:'models/bar.json', texture:'textures/woodtexture.jpg'},
+                {size:3, x:0, y:4, z:0.5, model:'models/panel.json', texture:'textures/signtexture.jpg'},
+                {size:3, x:0, y:4, z:0.3, model:'models/panel.json', texture:'textures/woodtexture.jpg'}
+            ]
+        },
+        {//Video sign 1
+            x:-14, y:0, z:-10,
+            horizontalRotation:0.2,
+            components:[
+                {size:4, x:-2, y:2, z:0, model:'models/bar.json', texture:'textures/metaltexture.jpg'},
+                {size:4, x:2, y:2, z:0, model:'models/bar.json', texture:'textures/metaltexture.jpg'},
+                {size:3, x:0, y:4, z:0.5, model:'models/panel.json', texture:0, play:false, lastTime:new Date().getTime(),
+                    animate:function (time) {
+                        if (this.play || (time - this.lastTime > 1000)) {
+                            videos[0].context.drawImage(videos[0].src, 0, 0, videos[0].canvas.width, videos[0].canvas.height);
+                            this.initialize(context, 'models/panel.json', 0);
+                            this.lastTime = time;
+                        }
+                    },
+                    preInitialize:function () {
+                        var videoSrc = document.createElement('video');
+                        videoSrc.width = 256;
+                        videoSrc.height = 256;
+                        videoSrc.loop = true;
+                        videoSrc.src = 'videos/green.webm';
+                        var videoCanvas = document.createElement('canvas');
+                        videoCanvas.width = 256;
+                        videoCanvas.height = 256;
+                        var videoContext = videoCanvas.getContext('2d');
+                        videos[0] = {src:videoSrc, canvas:videoCanvas, context:videoContext};
+                    },
+                    handleClick:function () {
+                        var video = videos[0].src;
+                        video.paused ? video.play() : video.pause();
+                        this.play = !video.paused;
+                    }
+                },
+                {size:3, x:0, y:4, z:0.3, model:'models/panel.json', texture:'textures/metaltexture.jpg'}
+            ]
+        },
+        {//Video sign 2
+            x:24, y:0, z:-24,
+            horizontalRotation:0.5,
+            components:[
+                {size:4, x:-2, y:2, z:0, model:'models/bar.json', texture:'textures/metaltexture.jpg'},
+                {size:4, x:2, y:2, z:0, model:'models/bar.json', texture:'textures/metaltexture.jpg'},
+                {size:3, x:0, y:4, z:0.5, model:'models/panel.json', texture:0, play:true, lastTime:new Date().getTime(),
+                    animate:function (time) {
+                        if (this.play || (time - this.lastTime > 1000)) {
+                            videos[1].context.drawImage(videos[1].src, 0, 0, videos[1].canvas.width, videos[1].canvas.height);
+                            this.initialize(context, 'models/panel.json', 1);
+                            this.lastTime = time;
+                        }
+                    },
+                    preInitialize:function () {
+                        var videoSrc = document.createElement('video');
+                        videoSrc.width = 256;
+                        videoSrc.height = 256;
+                        videoSrc.loop = true;
+                        var videoCanvas = document.createElement('canvas');
+                        videoCanvas.width = 256;
+                        videoCanvas.height = 256;
+                        var videoContext = videoCanvas.getContext('2d');
+                        videoSrc.src = 'videos/green.webm';
+                        //navigator.webkitGetUserMedia({video:true}, function (stream) {
+                        // videoSrc.src = window.webkitURL.createObjectURL(stream);
+                        // videoSrc.play();
+                        // });
+                        videos[1] = {src:videoSrc, canvas:videoCanvas, context:videoContext};
+                    },
+                    handleClick:function () {
+                        var video = videos[1].src;
+                        video.paused ? video.play() : video.pause();
+                    }
+                },
+                {size:3, x:0, y:4, z:0.3, model:'models/panel.json', texture:'textures/metaltexture.jpg'}
+            ]
+        },
+        {//Graphiti wall
+            x:-5, y:0, z:14,
+            horizontalRotation:Math.PI,
+            components:[
+                {size:4, x:0, y:2, z:0.5, model:'models/panel.json', texture:2, lastTime:new Date().getTime(),
+                    animate:function (time) {
+                        if ((time - this.lastTime > 300)) {
+                            this.initialize(context, 'models/panel.json', 2);
+                        }
+                    },
+                    preInitialize:function () {
+                        var graffitiCanvas = document.createElement('canvas');
+                        graffitiCanvas.width = 256;
+                        graffitiCanvas.height = 256;
+                        var graffitiContext = graffitiCanvas.getContext('2d');
+                        graffitiContext.fillStyle = 'grey';
+                        graffitiContext.fillRect(0, 0, 256, 256);
+
+                        videos[2] = {src:null, canvas:graffitiCanvas, context:graffitiContext};
+                    },
+                    handleClick:function (cursorXY) {
+                        //console.log(cursorXY.x + ' : ' + cursorXY.y);
+                        videos[2].context.fillStyle = 'black';
+                        videos[2].context.fillRect(128 + cursorXY.x,128 - cursorXY.y/2,10,10);
+                    }
+                },
+                {size:4, x:0, y:2, z:0.3, model:'models/panel.json', texture:'textures/metaltexture.jpg'}
+            ]
+        }
+    ];
+</script>
+<script id="shader-fs" type="x-shader/x-fragment">
+    precision mediump float;
+
+    varying vec2 vTextureCoord;
+    varying vec3 vLightWeighting;
+
+    uniform sampler2D uSampler;
+
+    uniform float uAlpha;
+
+    void main(void) {
+    vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+    gl_FragColor = vec4(textureColor.rgb * vLightWeighting, 1);
+    }
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+    attribute vec2 aTextureCoord;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat3 uNMatrix;
+
+    uniform vec3 uAmbientColor;
+
+    uniform vec3 uLightingDirection;
+    uniform vec3 uDirectionalColor;
+
+    uniform bool uUseLighting;
+
+    varying vec2 vTextureCoord;
+    varying vec3 vLightWeighting;
+
+    void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vTextureCoord = aTextureCoord;
+
+        //if (!uUseLighting) {
+          vLightWeighting = vec3(1.0, 1.0, 1.0);
+        //} else {
+          //vec3 transformedNormal = uNMatrix * aVertexNormal;
+          //float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
+          //vLightWeighting = uAmbientColor;// + uDirectionalColor * directionalLightWeighting;
+        //}
+    }
+</script>
+<script type="text/javascript">
+//Globals
+var canvas, sceneRoot;
+var mvMatrix, pMatrix;
+var mouse = {
+    start:{}
+};
+var touch = document.ontouchmove !== undefined;
+
+//Canvas managing module
+var INSPIRATION = function () {
+
+    var currentMenu = 0;
+    var menuAnimation = 0;
+    var currentlyExploded = false;
+    var explodeAnimation = 0;
+    var explodePower = 5.5;
+    var animationStartTime;
+    var animationTotalTime = 1000;
+    var buildingNodes = [];
+    var menuSpacing = -10;
+    var environment;
+
+    var init = function () {
+        document.onkeydown = handleKeyDown;
+        document.onkeyup = handleKeyUp;
+        $('#3dCanvas').on('mousedown touchstart',canvasClicked);
+
+        canvas = document.getElementById('3dCanvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        viewer = new Viewer();
+        viewer.y = 2;
+        viewer.z = 0;
+
+        initCanvas(canvas, '3D');
+        initShaders();
+        createScene();
+
+        tick();
+    }
+
+    var createScene = function () {
+        sceneRoot = new Node();
+
+        environment = new Environment(context);
+        environment.alpha = 0;
+        environment.lighting.lighting = true;
+        environment.lighting.ambient = [0.5, 0.5, 0.5];
+
+        //Put down ground
+        /*var roadNode = new Node();
+        var road = new Entity();
+        road.setupForContext(context);
+        road.size = 100;
+        road.x = 0;
+        road.y = -50;
+        road.z = 0;
+        road.ignoreCollisions = true;
+        road.initialize(context, 'models/cube.json', 'textures/roadtexture.jpg');
+
+        roadNode.children.push(road);
+        sceneRoot.children.push(roadNode);*/
+
+        for (var i = 0; i < structureInfo.length; i++) {
+            var building = structureInfo[i];
+            buildingNodes[i] = new Node();
+            buildingNodes[i].x = building.x || 0;
+            buildingNodes[i].y = building.y || 0;
+            buildingNodes[i].z = building.z || 0;
+            buildingNodes[i].horizontalRotation = building.horizontalRotation || 0;
+            sceneRoot.children.push(buildingNodes[i]);
+
+            for (var j = 0; j < building.components.length; j++) {
+                var buildingComponent = new Entity();
+                buildingComponent.setupForContext(context);
+                buildingComponent.size = building.components[j].size || 1;
+                buildingComponent.x = building.components[j].x || 0;
+                buildingComponent.y = building.components[j].y || 0;
+                buildingComponent.z = building.components[j].z || 0;
+                buildingComponent.horizontalRotation = building.components[j].horizontalRotation || 0;
+                buildingComponent.play = building.components[j].play;
+                buildingComponent.lastTime = building.components[j].lastTime;
+                buildingComponent.ignoreCollisions = building.components[j].ignoreCollisions;
+                if (building.components[j].animate) buildingComponent.animate = building.components[j].animate;
+                if (building.components[j].handleClick) buildingComponent.handleClick = building.components[j].handleClick;
+                if (building.components[j].preInitialize) building.components[j].preInitialize();
+                buildingComponent.initialize(context, building.components[j].model, building.components[j].texture);
+                buildingNodes[i].children.push(buildingComponent);
+            }
+        }
+    }
+
+    var tick = function () {
+        requestAnimFrame(tick);
+        handleKeys();
+
+        drawScene();
+    }
+
+    drawScene = function () {
+        if (context.state == '3D') {
+            sceneRoot.animate(new Date().getTime());
+            context.clear(context.COLOR_BUFFER_BIT | context.DEPTH_BUFFER_BIT);
+            context.viewport(0, 0, context.canvasWidth, context.canvasHeight);
+            viewer.setupView(context, pMatrix, mvMatrix);
+            environment.setupSceneForDraw(context);
+            sceneRoot.draw(context, mvMatrix, pMatrix);
+        }
+        else {
+            context.save();
+            renderPipeline2D = [];
+            viewer.setupView(context, pMatrix, mvMatrix);
+            environment.setupSceneForDraw(context);
+            sceneRoot.draw(context, mvMatrix, pMatrix);
+            drawRenderPipeline2D();
+            context.restore();
+        }
+    }
+
+    /*var handleExplodeAnimation = function () {
+        if (!explodeAnimation) return;
+
+        var initialPosition, finalPosition
+        var currentX, currentY, currentZ;
+
+        var frameTime = new Date().getTime();
+        if (frameTime - animationStartTime > animationTotalTime) { //animation is over
+            currentlyExploded = !currentlyExploded;
+            if (!currentlyExploded) document.getElementById('infoDiv').style.display = 'none';
+            explodeAnimation = 0;
+            for (var i = 0; i < menus.length; i++) {
+                for (var j = 0; j < menus[i].length; j++) {
+                    menus[i][j].x = currentlyExploded ? (parseInt(structureInfo[i][j].x) * explodePower) : structureInfo[i][j].x;
+                    menus[i][j].y = currentlyExploded ? (parseInt(structureInfo[i][j].y) * explodePower) : structureInfo[i][j].y;
+                    menus[i][j].z = currentlyExploded ? (parseInt(structureInfo[i][j].z) * explodePower) : structureInfo[i][j].z;
+                    menus[i][j].children[0].opacity = currentlyExploded ? 0 : 0.9;
+                }
+            }
+            return;
+        }
+
+        var framePosition = (frameTime - animationStartTime) / animationTotalTime;
+        for (var i = 0; i < menus.length; i++) {
+            for (var j = 0; j < menus[i].length; j++) {
+                initialPoisition = explodeAnimation == 1 ? structureInfo[i][j] : {x:(parseInt(structureInfo[i][j].x) * explodePower), y:(parseInt(structureInfo[i][j].y) * explodePower), z:(parseInt(structureInfo[i][j].z) * explodePower)};
+                finalPosition = explodeAnimation == 1 ? {x:(parseInt(structureInfo[i][j].x) * explodePower), y:(parseInt(structureInfo[i][j].y) * explodePower), z:(parseInt(structureInfo[i][j].z) * explodePower)} : structureInfo[i][j];
+                menus[i][j].x = CAPITECUTILS.naturalInterpolate(initialPoisition.x, finalPosition.x, framePosition, 1);
+                menus[i][j].y = CAPITECUTILS.naturalInterpolate(initialPoisition.y, finalPosition.y, framePosition, 1);
+                menus[i][j].z = CAPITECUTILS.naturalInterpolate(initialPoisition.z, finalPosition.z, framePosition, 1);
+                menus[i][j].children[0].opacity = CAPITECUTILS.naturalInterpolate(explodeAnimation == 1 ? 0.9 : 0, explodeAnimation == 1 ? 0 : 0.9, framePosition, 1);
+            }
+        }
+        document.getElementById('infoDiv').style.opacity = CAPITECUTILS.naturalInterpolate(explodeAnimation == 1 ? 0 : 0.9, explodeAnimation == 1 ? 0.9 : 0, framePosition, 1);
+    }*/
+
+    //Key handling
+    var currentlyPressedKeys = [];
+
+    function handleKeyDown(e) {
+        var code;
+        if (!e) var e = window.event;
+        if (e.keyCode) code = e.keyCode;
+        else if (e.which) code = e.which;
+        currentlyPressedKeys[code] = true;
+    }
+
+    function handleKeyUp(e) {
+        var code;
+        if (!e) var e = window.event;
+        if (e.keyCode) code = e.keyCode;
+        else if (e.which) code = e.which;
+        currentlyPressedKeys[code] = false;
+    }
+
+    function handleKeys() {
+        if (menuAnimation || explodeAnimation) return;
+        if (currentlyPressedKeys[38]) {//up arrow
+            viewer.moveForward(true, true, sceneRoot);
+        }
+        if (currentlyPressedKeys[40]) {//down arrow
+            viewer.moveForward(false, true, sceneRoot);
+        }
+        if (currentlyPressedKeys[65]) {//up arrow
+            if (viewer.verticalRotation > -1.5) viewer.verticalRotation -= 0.1;
+        }
+        if (currentlyPressedKeys[90]) {//down arrow
+            if (viewer.verticalRotation < 1.5) viewer.verticalRotation += 0.1;
+        }
+        if (currentlyPressedKeys[37]) {//left arrow
+            viewer.horizontalRotation -= 0.1;
+        }
+        if (currentlyPressedKeys[39]) {//right arrow
+            viewer.horizontalRotation += 0.1;
+        }
+    }
+
+    return {
+        init:init,
+        tick:tick
+    }
+}();
+
+</script>
+</body>
+</html>

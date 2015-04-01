@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <title>Liquid canvas demo</title>
+</head>
+<body onload="init()">
+
+  <div style="border-radius:1px;border-style:solid;width:600px;height:125px;background-color:rgb(245,245,255)">
+    <canvas id="liquidCanvas" width="600" height="125" style="position:absolute"></canvas>
+    <!--<img class="menuItemRock" src="rock.png" style="position:absolute;left:100px;top:35px;width:70px;height:70px" />
+    <img class="menuItemRock" src="rock.png" style="position:absolute;left:300px;top:61px;width:50px;height:50px" />
+    <img class="menuItemRock" src="rock.png" style="position:absolute;left:400px;top:45px;width:70px;height:70px" />
+    <img class="menuItemRock" src="rock.png" style="position:absolute;left:600px;top:31px;width:50px;height:50px" />-->
+  </div>
+  <input type="checkbox" checked="checked" id="pixelDrawCheckBox" onclick="pixelDrawMode=!pixelDrawMode;">Pixel draw mode</input>
+  <script type="text/javascript">
+    var canvas, ctx, canvasWidth, canvasHeight;
+    var waves = [];
+    var waveSpeed = 15;
+    var waveWidth = 4;
+    var waveDisapearHeight = 0.015;
+    var waveDecayRate = 2.5;
+    var maxNumberOfWaves = 20;
+
+    var waveTime;
+    var waveDensity;
+    var pixelDrawMode = true;
+
+    function init() {
+      canvas = document.getElementById('liquidCanvas')
+      ctx = canvas.getContext('2d');
+
+      canvasWidth = canvas.width;
+      canvasHeight = canvas.height;
+
+      imageData = ctx.createImageData(canvasWidth, canvasHeight);
+      ctx.lineWidth = waveWidth;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'blue';
+
+      canvas.onclick = handleCanvasClick;
+
+      requestAnimFrame( render );
+    }
+
+    function render() {
+      requestAnimFrame( render );
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      for (var i = 0; i < waves.length; i++) {
+        waveTime = new Date().getTime() - waves[i].startTime;
+
+        waves[i].height = waves[i].height * (1 / ((waveTime*waveDecayRate/1000000) + 1));
+        if (waves[i].height < waveDisapearHeight) {
+          waves.splice(i, 1);
+        }
+        else {
+          waves[i].radius = waveSpeed * waveTime / 1000;
+          addReboundWaves(waves[i]);
+          if( !pixelDrawMode ) {
+            drawWave(waves[i]);
+          }
+        }
+      }
+      if( pixelDrawMode ) {
+        drawWavesPixels();
+      }
+    }
+
+    function drawWave(wave) {
+      var waveCounter = 0;
+      for (var i = wave.height; i > waveDisapearHeight; i = i / 2) {
+        if (wave.radius - (3.5 * waveWidth * waveCounter) < 0) return;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius - (3.5 * waveWidth * waveCounter), 0, 2 * Math.PI, true);
+        ctx.globalAlpha = i;
+        ctx.stroke();
+        ctx.globalAlpha = i / 2;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius - (3.5 * waveWidth * waveCounter) + waveWidth, 0, 2 * Math.PI, true);
+        ctx.stroke();
+        if (wave.radius - (3.5 * waveWidth * waveCounter) > waveWidth) {
+          ctx.beginPath();
+          ctx.arc(wave.x, wave.y, wave.radius - (3.5 * waveWidth * waveCounter) - waveWidth, 0, 2 * Math.PI, true);
+          ctx.stroke();
+        }
+        waveCounter++;
+      }
+    }
+
+    function drawWavesPixels() {
+      for( var x=0; x<canvasWidth; x+=1 ) {
+        var waveDensity, waveDistance, waveDensity2Back, waveDensityInterp;
+        for( var y=0; y<canvasHeight; y+=1 ) {
+          waveDensity2Back = waveDensity;
+          waveDensity = 0;
+          for( var i=0; i<waves.length; i++ ) {
+            waveDistance = waves[i].radius-findDistance( x, y, waves[i].x, waves[i].y );
+            if(Math.abs(waveDistance) < 12*waveWidth) {waveDensity += waves[i].height*calculateWaveDensity(waveDistance, waveWidth, waves[i]);}
+          }
+          waveDensity = 245-Math.min(255*Math.abs(waveDensity));
+
+          setPixel( imageData, x, y, waveDensity, waveDensity, 255, 255);
+          //waveDensityInterp = (waveDensity + waveDensity2Back)/2;
+          //setPixel( imageData, x, y-1, waveDensityInterp, waveDensityInterp, 255, 255);
+        }
+      }
+        ctx.putImageData(imageData, 0, 0);
+    }
+
+    function addReboundWaves(wave) {
+      if (wave.height < 8*waveDisapearHeight) {
+        return;
+      }
+      (!wave.leftRebound) && (wave.x - wave.radius < 0) && (pushNewWave(0, wave.y, wave.height/2, 0)) && (wave.leftRebound = true);
+
+      (!wave.rightRebound) && (wave.x + wave.radius > canvasWidth) && (pushNewWave(canvasWidth, wave.y, wave.height/2, 0)) && (wave.rightRebound = true);
+
+      (!wave.topRebound) && (wave.y - wave.radius < 0) && (pushNewWave(wave.x, 0, wave.height/2, 0)) && (wave.topRebound = true);
+
+      (!wave.bottomRebound) && (wave.y + wave.radius > canvasHeight) && (pushNewWave(wave.x, canvasHeight, wave.height/2, 0)) && (wave.bottomRebound = true);
+    }
+
+    function pushNewWave( x, y, height, radius ) {
+
+      if(waves.length > maxNumberOfWaves ) return false;
+
+      var height = height || 0.8;
+      var radius = radius || 0;
+      waves.push({x:x,
+        y:y,
+        startTime:new Date().getTime(),
+        radius:radius,
+        height:height,
+        leftRebound: false,
+        rightRebound: false,
+        topRebound: false,
+        bottomRebound: false
+      });
+      return true;
+    }
+
+    function handleCanvasClick(evt) {
+      evt = evt || window.event;
+      var liElm = evt.target || evt.srcElement;
+
+      posX = evt.offsetX ? (evt.offsetX) : evt.pageX - canvas.offsetLeft;
+      posY = evt.offsetY ? (evt.offsetY) : evt.pageY - canvas.offsetTop;
+      pushNewWave(posX, posY, 0.8, 0);
+    }
+
+    function calculateWaveDensity(distance, waveWidth, wave ) {
+      waveWidth = 3*waveWidth;
+      var modifier = Math.exp(-((distance-waveWidth/2)*(distance-waveWidth/2)) / ((waveWidth*waveWidth)));
+      if( wave.radius < waveWidth ) {
+        modifier = modifier*wave.radius*wave.radius/waveWidth/waveWidth;
+      }
+      return modifier * Math.sin(distance / 3);
+    }
+
+    function setPixel(imageData, x, y, r, g, b, a) {
+      index = (x + y * imageData.width) * 4;
+      imageData.data[index + 0] = r;
+      imageData.data[index + 1] = g;
+      imageData.data[index + 2] = b;
+      imageData.data[index + 3] = a;
+    }
+
+    function findDistance(x1, y1, x2, y2) {
+      return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    }
+
+    /**
+     * Provides requestAnimationFrame in a cross browser way.
+     */
+    window.requestAnimFrame = (function() {
+      return window.requestAnimationFrame ||
+          window.webkitRequestAnimationFrame ||
+          window.mozRequestAnimationFrame ||
+          window.oRequestAnimationFrame ||
+          window.msRequestAnimationFrame ||
+          function( callback, element) {
+            window.setTimeout(callback, 1000/28);
+          };
+    })();
+
+  </script>
+</body>
+</html>
