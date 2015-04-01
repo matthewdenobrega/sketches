@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>3D Cube</title>
+    <link rel="stylesheet" href="/css/cube.css" type="text/css"/>
+</head>
+<body>
+
+<div class="cubeWrapper">
+    <div id="cube"></div>
+</div>
+
+<script type="text/javascript">
+    var frameIndex = 0;
+    var cube = document.getElementById('cube');
+
+    function updateFrame() {
+        frameIndex = (frameIndex + 1) % 30;
+        updateCube(frameIndex);
+        updateCube(frameIndex);
+
+        setTimeout(updateFrame, 100);
+    }
+
+    function updateCube(frameIndex) {
+        var bgX = -60 * (frameIndex % 5);
+        var bgY = -60 * (Math.floor((frameIndex / 5)) % 6);
+
+        var posX = -30 * (30 - frameIndex);
+        var posZ = -160 * (30 - frameIndex);
+
+        cube.style['background-position'] = bgX + 'px ' + bgY + 'px';
+        cube.style['-webkit-transform'] = 'scale(3) translate3d(' + posX + 'px, 0px, ' + posZ + 'px)';
+    }
+
+    document.onkeyup = function(event) {
+        if(event.keyCode == 32) updateFrame();
+    };
+
+    //updateFrame();
+</script>
+</body>
+</html>

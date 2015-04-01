@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>3D Tabs</title>
+    <link rel="stylesheet" href="/css/tabs.css" type="text/css"/>
+</head>
+<body>
+
+<div class="tabsWrapper">
+    <div class="tabsHeadingWrapper">
+        <div class="tabsHeading" onclick="toggleTabs(1)">Tab 1</div>
+        <div class="tabsHeading" onclick="toggleTabs(2)">Tab 2</div>
+        <div class="tabsHeading" onclick="toggleTabs(3)">Tab 3</div>
+    </div>
+
+    <div class="tabsContentWrapper">
+        <div id="tabsContent1" class="tabsContent inactive">
+            <img src="images/leap-motion.jpeg"/>
+        </div>
+        <div id="tabsContent2" class="tabsContent">
+            <img src="images/leap-motion.jpeg"/>
+        </div>
+        <div id="tabsContent3" class="tabsContent inactive">
+            <img src="images/leap-motion.jpeg"/>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    var tabsContent;
+
+    (function() {
+        tabsContent = document.querySelectorAll('.tabsContent');
+        console.dir(tabsContent);
+    })();
+
+    function toggleTabs(tab) {
+        for(var tabContent in tabsContent) {
+            addClass(tabsContent[tabContent], 'inactive');
+        }
+
+        removeClass(tabsContent[tab - 1], 'inactive');
+    }
+
+    var addClass = function (el, className) {
+        if (el.classList)
+            el.classList.add(className);
+        else
+            el.className += ' ' + className;
+    };
+
+    var removeClass = function (el, className) {
+        if (el.classList)
+            el.classList.remove(className);
+        else
+            el.className = el.className.replace(new RegExp('(^|\\b)' + className.split(' ').join('|') + '(\\b|$)', 'gi'), ' ');
+    };
+
+    var toggleClass = function (el, className) {
+        if (el.classList) {
+            el.classList.toggle(className);
+        } else {
+            var classes = el.className.split(' ');
+            var existingIndex = classes.indexOf(className);
+
+            if (existingIndex >= 0)
+                classes.splice(existingIndex, 1);
+            else
+                classes.push(className);
+
+            el.className = classes.join(' ');
+        }
+    };
+</script>
+</body>
+</html>

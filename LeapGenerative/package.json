@@ -1,0 +1,22 @@
+{
+  "name": "broadleaf.angular.interface",
+  "version": "0.0.0",
+  "description": "Broadleaf Angular interface",
+  "main": "app.js",
+  "dependencies": {
+      "connect":"~2.14.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@bitbucket.org:quirkagency/tech.broadleaf.angular.interface.git"
+  },
+  "keywords": [
+    "ecommerce"
+  ],
+  "author": "Matthew de Nobrega",
+  "license": "ISC"
+}

@@ -1,0 +1,44 @@
+#canvasWrapper {
+    perspective: 600px;
+    -webkit-perspective: 600px;
+}
+
+#wrapper {
+    width: 640px;
+    height: 480px;
+}
+
+#wrapper.spin {
+    -webkit-animation: 1s spin both 1;
+}
+
+#dashboard {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#canvas {
+    width: 640px;
+    height: 480px;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.leapjs-dialog {
+    display: none;
+}
+
+@-moz-keyframes spin {
+    from { -moz-transform: rotateY(0deg); }
+    to { -moz-transform: rotateY(360deg); }
+}
+@-webkit-keyframes spin {
+    from { -webkit-transform: rotateY(0deg); }
+    to { -webkit-transform: rotateY(360deg); }
+}
+@keyframes spin {
+    from {transform:rotateY(0deg);}
+    to {transform:rotateY(360deg);}
+}

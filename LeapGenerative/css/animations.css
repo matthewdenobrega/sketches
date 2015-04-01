@@ -1,0 +1,87 @@
+/* entire container, keeps perspective */
+.flip-container {
+    -webkit-perspective: 1000;
+    perspective: 1000;
+}
+/* flip the pane when hovered */
+.flip-container:hover .flipper, .flip-container.hover .flipper {
+    -webkit-transform: rotateY(180deg);
+    transform: rotateY(180deg);
+}
+
+.flip-container, .front, .back {
+    width: 425px;
+    height: 270px;
+}
+
+/* flip speed goes here */
+.flipper {
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+    -webkit-transition-style: preserv-3d;
+    transform-style: preserve-3d;
+
+    position: relative;
+}
+
+/* hide back of pane during swap */
+.front, .back {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* front pane, placed above back */
+.front {
+    z-index: 2;
+}
+
+/* back, initially hidden pane */
+.back {
+    -webkit-transform: rotateY(180deg);
+    transform: rotateY(180deg);
+}
+
+/*
+** Slide
+*/
+button {
+    width: 80px;
+    height: 40px;
+    background-color: #8a2be2;
+    color: #f5f5f5;
+    border: none;
+}
+
+@-webkit-keyframes slide {
+0% {opacity: 0; -webkit-transform: skew(0deg) translate3d(0px, 0px, 0px); width: 80px;}
+5% {opacity: 0.65; -webkit-transform: skew(10deg) translate3d(129.29px, 0px, 0px); width: 80px;}
+10% {opacity: 1.25; -webkit-transform: skew(20deg) translate3d(250px, 0px, 0px); width: 80px;}
+15% {opacity: 1.35; -webkit-transform: skew(0deg) translate3d(270.71px, 0px, 0px); width: 80px;}
+20% {opacity: 1.13; -webkit-transform: skew(-20deg) translate3d(225px, 0px, 0px); width: 80px;}
+25% {opacity: 0.91; -webkit-transform: skew(0deg) translate3d(182.32px, 0px, 0px); width: 80px;}
+30% {opacity: 0.88; -webkit-transform: skew(20deg) translate3d(175px, 0px, 0px); width: 80px;}
+35% {opacity: 0.96; -webkit-transform: skew(10deg) translate3d(191.16px, 0px, 0px); width: 80px;}
+40% {opacity: 1.03; -webkit-transform: skew(0deg) translate3d(206.25px, 0px, 0px); width: 80px;}
+45% {opacity: 1.04; -webkit-transform: skew(-10deg) translate3d(208.84px, 0px, 0px); width: 80px;}
+50% {opacity: 1.02; -webkit-transform: skew(-20deg) translate3d(203.13px, 0px, 0px); width: 80px;}
+55% {opacity: 0.99; -webkit-transform: skew(-10deg) translate3d(197.79px, 0px, 0px); width: 80px;}
+60% {opacity: 0.98; -webkit-transform: skew(0deg) translate3d(196.88px, 0px, 0px); width: 80px;}
+65% {opacity: 0.99; -webkit-transform: skew(3deg) translate3d(198.9px, 0px, 0px); width: 80px;}
+70% {opacity: 1; -webkit-transform: skew(0deg) translate3d(200.78px, 0px, 0px); width: 80px;}
+75% {opacity: 1.01; -webkit-transform: skew(-2deg) translate3d(201.1px, 0px, 0px); width: 80px;}
+80% {opacity: 1; -webkit-transform: skew(0deg) translate3d(200.39px, 0px, 0px); width: 80px;}
+85% {opacity: 1; -webkit-transform: skew(0deg) translate3d(199.72px, 0px, 0px); width: 80px;}
+90% {opacity: 1; -webkit-transform: skew(0deg) translate3d(199.61px, 0px, 0px); width: 80px;}
+95% {opacity: 1; -webkit-transform: skew(0deg) translate3d(199.86px, 0px, 0px); width: 80px;}
+100% {opacity: 1; -webkit-transform: skew(0deg) translate3d(200px, 0px, 0px); width: 80px;}
+}
+
+.slide {
+    -webkit-animation: slide 1.5s forwards linear;
+    -moz-animation: slide 1.5s forwards linear;
+    animation: slide 1.5s forwards linear;
+}

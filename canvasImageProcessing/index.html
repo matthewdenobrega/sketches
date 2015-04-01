@@ -1,0 +1,524 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title></title>
+    <style type="text/css">
+
+        .liquidWrapper {
+            border-radius:1px;
+            border-style:solid;
+            width:600px;
+            height:125px;
+            background-color:rgb(245,245,255)
+        }
+    </style>
+</head>
+<body onload="init()">
+<img id="orig" src="demo_small.png"/>
+<img id="screen" src="screen.png" style="position:absolute;display:none;opacity:0.7"/>
+<canvas id="canvas" width="400" height="400" style="display:none"></canvas>
+<br/>
+<button type="button" onclick="sepia()">Sepia</button>
+<button type="button" onclick="pixelate()">Pixelate</button>
+<button type="button" onclick="sharpen()">Sharpen</button>
+<button type="button" onclick="blurC()">Blur</button>
+<button type="button" onclick="sobel()">Edges</button>
+<button type="button" onclick="noise()">Add Noise</button>
+<button type="button" onclick="custom()">Engraving</button>
+<button type="button" onclick="showOriginalImage()">Original Image</button>
+
+<div class="liquidWrapper">
+    <canvas id="liquidCanvas" width="600" height="125" style="position:absolute"></canvas>
+</div>
+<input type="checkbox" checked="checked" id="pixelDrawCheckBox" onclick="pixelDrawMode=!pixelDrawMode;">Pixel draw mode</input>
+<script type="text/javascript">
+    Filters = {};
+    Filters.getPixels = function (img) {
+        var c = this.getCanvas(img.width, img.height);
+        var ctx = c.getContext('2d');
+
+        ctx.drawImage(img, 0, 0);
+        return ctx.getImageData(0, 0, c.width, c.height);
+    };
+
+    Filters.getCanvas = function (w, h) {
+        var c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        return c;
+    };
+
+    Filters.filterImage = function (filter, image, var_args) {
+        var args = [this.getPixels(image)];
+        for (var i = 2; i < arguments.length; i++) {
+            args.push(arguments[i]);
+        }
+        return filter.apply(null, args);
+    };
+
+    Filters.grayscale = function (pixels, args) {
+        var d = pixels.data;
+        for (var i = 0; i < d.length; i += 4) {
+            var r = d[i];
+            var g = d[i + 1];
+            var b = d[i + 2];
+            // CIE luminance for the RGB
+            // The human eye is bad at seeing red and blue, so we de-emphasize them.
+            var v = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            d[i] = d[i + 1] = d[i + 2] = v
+        }
+        return pixels;
+    };
+
+    Filters.sepia = function (pixels, args) {
+        console.log( 'sepia' );
+        var d = pixels.data;
+        for (var i = 0; i < d.length; i += 4) {
+            var r = d[i];
+            var g = d[i + 1];
+            var b = d[i + 2];
+            d[i] = 0.7 * r;
+            d[i + 1] = 0.5 * g;
+            d[i + 2] = 0.1 * b;
+        }
+        return pixels;
+    };
+
+    Filters.noise = function (pixels, args) {
+        var d = pixels.data;
+        for (var i = 0; i < d.length; i += 4) {
+            var r = d[i];
+            var g = d[i + 1];
+            var b = d[i + 2];
+
+            var rnd = 0.5 + 0.7*Math.random();
+
+            d[i] = rnd * r;
+            d[i + 1] = rnd * g;
+            d[i + 2] = rnd * b;
+        }
+        return pixels;
+    };
+
+    Filters.pixelate = function (pixels) {
+        var d = pixels.data;
+        var width = pixels.width;
+        var height = pixels.height;
+
+        for (var x = 2; x < width-2; x += 3) {
+            for (var y = 2; y < height - 2; y += 3) {
+                var colour = Filters.getPixel(pixels, x, y);
+                Filters.setPixelRow(pixels, x, y - 2, colour[0], colour[1], colour[2], colour[3]);
+                Filters.setPixelRow(pixels, x, y - 1, colour[0], colour[1], colour[2], colour[3]);
+                Filters.setPixelRow(pixels, x, y, colour[0], colour[1], colour[2], colour[3]);
+                Filters.setPixelRow(pixels, x, y + 1, colour[0], colour[1], colour[2], colour[3]);
+                Filters.setPixelRow(pixels, x, y + 1, colour[0], colour[1], colour[2], colour[3]);
+            }
+        }
+        return pixels;
+    }
+
+    Filters.brightness = function (pixels, adjustment) {
+        var d = pixels.data;
+        for (var i = 0; i < d.length; i += 4) {
+            d[i] += adjustment;
+            d[i + 1] += adjustment;
+            d[i + 2] += adjustment;
+        }
+        return pixels;
+    };
+
+    Filters.tmpCanvas = document.createElement('canvas');
+    Filters.tmpCtx = Filters.tmpCanvas.getContext('2d');
+
+    Filters.createImageData = function (w, h) {
+        return this.tmpCtx.createImageData(w, h);
+    };
+
+    Filters.convolute = function (pixels, weights, opaque) {
+        var side = Math.round(Math.sqrt(weights.length));
+        var halfSide = Math.floor(side / 2);
+        var src = pixels.data;
+        var sw = pixels.width;
+        var sh = pixels.height;
+        // pad output by the convolution matrix
+        var w = sw;
+        var h = sh;
+        var output = Filters.createImageData(w, h);
+        var dst = output.data;
+        // go through the destination image pixels
+        var alphaFac = opaque ? 1 : 0;
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var sy = y;
+                var sx = x;
+                var dstOff = (y * w + x) * 4;
+                // calculate the weighed sum of the source image pixels that
+                // fall under the convolution matrix
+                var r = 0, g = 0, b = 0, a = 0;
+                for (var cy = 0; cy < side; cy++) {
+                    for (var cx = 0; cx < side; cx++) {
+                        var scy = sy + cy - halfSide;
+                        var scx = sx + cx - halfSide;
+                        if (scy >= 0 && scy < sh && scx >= 0 && scx < sw) {
+                            var srcOff = (scy * sw + scx) * 4;
+                            var wt = weights[cy * side + cx];
+                            r += src[srcOff] * wt;
+                            g += src[srcOff + 1] * wt;
+                            b += src[srcOff + 2] * wt;
+                            a += src[srcOff + 3] * wt;
+                        }
+                    }
+                }
+                dst[dstOff] = r;
+                dst[dstOff + 1] = g;
+                dst[dstOff + 2] = b;
+                dst[dstOff + 3] = a + alphaFac * (255 - a);
+            }
+        }
+        return output;
+    };
+
+    if (!window.Float32Array)
+        Float32Array = Array;
+
+    Filters.convoluteFloat32 = function (pixels, weights, opaque) {
+        var side = Math.round(Math.sqrt(weights.length));
+        var halfSide = Math.floor(side / 2);
+
+        var src = pixels.data;
+        var sw = pixels.width;
+        var sh = pixels.height;
+
+        var w = sw;
+        var h = sh;
+        var output = {
+            width:w, height:h, data:new Float32Array(w * h * 4)
+        };
+        var dst = output.data;
+
+        var alphaFac = opaque ? 1 : 0;
+
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var sy = y;
+                var sx = x;
+                var dstOff = (y * w + x) * 4;
+                var r = 0, g = 0, b = 0, a = 0;
+                for (var cy = 0; cy < side; cy++) {
+                    for (var cx = 0; cx < side; cx++) {
+                        var scy = Math.min(sh - 1, Math.max(0, sy + cy - halfSide));
+                        var scx = Math.min(sw - 1, Math.max(0, sx + cx - halfSide));
+                        var srcOff = (scy * sw + scx) * 4;
+                        var wt = weights[cy * side + cx];
+                        r += src[srcOff] * wt;
+                        g += src[srcOff + 1] * wt;
+                        b += src[srcOff + 2] * wt;
+                        a += src[srcOff + 3] * wt;
+                    }
+                }
+                dst[dstOff] = r;
+                dst[dstOff + 1] = g;
+                dst[dstOff + 2] = b;
+                dst[dstOff + 3] = a + alphaFac * (255 - a);
+            }
+        }
+        return output;
+    };
+
+    Filters.setPixelRow = function (imageData, x, y, r, g, b, a) {
+        Filters.setPixel(imageData, x - 2, y, r, g, b, a);
+        Filters.setPixel(imageData, x - 1, y, r, g, b, a);
+        Filters.setPixel(imageData, x, y, r, g, b, a);
+        Filters.setPixel(imageData, x + 1, y, r, g, b, a);
+        Filters.setPixel(imageData, x + 2, y, r, g, b, a);
+    }
+
+    Filters.setPixel = function (imageData, x, y, r, g, b, a) {
+        index = (x + y * imageData.width) * 4;
+        imageData.data[index + 0] = r;
+        imageData.data[index + 1] = g;
+        imageData.data[index + 2] = b;
+        imageData.data[index + 3] = a;
+    }
+
+    Filters.getPixel = function (imageData, x, y) {
+        index = (x + y * imageData.width) * 4;
+        return [imageData.data[index + 0], imageData.data[index + 1], imageData.data[index + 2], imageData.data[index + 3]]
+    }
+</script>
+<script type="text/javascript">
+
+    var timer;
+    var img = document.getElementById('orig');
+    img.addEventListener('load', function () {
+
+    });
+
+    function runFilter(id, filter, arg1, arg2, arg3) {
+        var c = document.getElementById(id);
+        var idata = Filters.filterImage(filter, img, arg1, arg2, arg3);
+        c.width = idata.width;
+        c.height = idata.height;
+        var ctx = c.getContext('2d');
+        ctx.putImageData(idata, 0, 0);
+        img.style.display = 'none';
+        c.style.display = 'inline';
+    }
+
+    grayScale = function () {
+        resetCanvas();
+        runFilter('canvas', Filters.grayscale);
+    }
+
+    sepia = function () {
+        resetCanvas();
+        runFilter('canvas', Filters.sepia);
+        document.getElementById('screen').style.display = 'block';
+    }
+
+    noise = function () {
+        resetCanvas();
+        runFilter('canvas', Filters.noise);
+        timer = setTimeout('noise()', 100);
+    }
+
+    pixelate = function () {
+        resetCanvas();
+        runFilter('canvas', Filters.pixelate);
+    }
+
+    sharpen = function () {
+        resetCanvas();
+        runFilter('canvas', Filters.convolute,
+            [ 0, -1, 0,
+                -1, 5, -1,
+                0, -1, 0]);
+    }
+
+    blurC = function () {
+        resetCanvas();
+        runFilter('canvas', Filters.convolute,
+            [ 1 / 9, 1 / 9, 1 / 9,
+                1 / 9, 1 / 9, 1 / 9,
+                1 / 9, 1 / 9, 1 / 9 ]);
+    }
+
+    resetCanvas = function () {
+        document.getElementById('screen').style.display = 'none';
+        clearTimeout(timer);
+    }
+
+    showOriginalImage = function () {
+        resetCanvas();
+        img.style.display = 'inline';
+        document.getElementById('canvas').style.display = 'none';
+    }
+
+    sobel = function () {
+        resetCanvas();
+        runFilter('canvas', function (px) {
+            px = Filters.grayscale(px);
+            var vertical = Filters.convoluteFloat32(px,
+                [-1, -2, -1,
+                    0, 0, 0,
+                    1, 2, 1]);
+            var horizontal = Filters.convoluteFloat32(px,
+                [-1, 0, 1,
+                    -2, 0, 2,
+                    -1, 0, 1]);
+            var id = Filters.createImageData(vertical.width, vertical.height);
+            for (var i = 0; i < id.data.length; i += 4) {
+                var v = Math.abs(vertical.data[i]);
+                id.data[i] = v;
+                var h = Math.abs(horizontal.data[i]);
+                id.data[i + 1] = h
+                id.data[i + 2] = (v + h) / 4;
+                id.data[i + 3] = 255;
+            }
+            return id;
+        });
+    }
+
+    custom = function() {
+        resetCanvas();
+        var matrix = [-1, 1, 1, 1, 0.2, -1, -1, -1, 1];
+        runFilter('canvas', Filters.convolute, matrix, true);
+    }
+
+</script>
+<script type="text/javascript">
+    var canvas, ctx, canvasWidth, canvasHeight;
+    var waves = [];
+    var waveSpeed = 15;
+    var waveWidth = 4;
+    var waveDisapearHeight = 0.015;
+    var waveDecayRate = 2.5;
+    var maxNumberOfWaves = 20;
+
+    var waveTime;
+    var waveDensity;
+    var pixelDrawMode = true;
+
+    function init() {
+        canvas = document.getElementById('liquidCanvas');
+        ctx = canvas.getContext('2d');
+
+        canvasWidth = canvas.width;
+        canvasHeight = canvas.height;
+
+        imageData = ctx.createImageData(canvasWidth, canvasHeight);
+        ctx.lineWidth = waveWidth;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = 'blue';
+
+        canvas.onclick = handleCanvasClick;
+
+        requestAnimFrame( render );
+    }
+
+    function render() {
+        requestAnimFrame( render );
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        for (var i = 0; i < waves.length; i++) {
+            waveTime = new Date().getTime() - waves[i].startTime;
+
+            waves[i].height = waves[i].height * (1 / ((waveTime*waveDecayRate/1000000) + 1));
+            if (waves[i].height < waveDisapearHeight) {
+                waves.splice(i, 1);
+            }
+            else {
+                waves[i].radius = waveSpeed * waveTime / 1000;
+                addReboundWaves(waves[i]);
+                if( !pixelDrawMode ) {
+                    drawWave(waves[i]);
+                }
+            }
+        }
+        if( pixelDrawMode ) {
+            drawWavesPixels();
+        }
+    }
+
+    function drawWave(wave) {
+        var waveCounter = 0;
+        for (var i = wave.height; i > waveDisapearHeight; i = i / 2) {
+            if (wave.radius - (3.5 * waveWidth * waveCounter) < 0) return;
+            ctx.beginPath();
+            ctx.arc(wave.x, wave.y, wave.radius - (3.5 * waveWidth * waveCounter), 0, 2 * Math.PI, true);
+            ctx.globalAlpha = i;
+            ctx.stroke();
+            ctx.globalAlpha = i / 2;
+            ctx.beginPath();
+            ctx.arc(wave.x, wave.y, wave.radius - (3.5 * waveWidth * waveCounter) + waveWidth, 0, 2 * Math.PI, true);
+            ctx.stroke();
+            if (wave.radius - (3.5 * waveWidth * waveCounter) > waveWidth) {
+                ctx.beginPath();
+                ctx.arc(wave.x, wave.y, wave.radius - (3.5 * waveWidth * waveCounter) - waveWidth, 0, 2 * Math.PI, true);
+                ctx.stroke();
+            }
+            waveCounter++;
+        }
+    }
+
+    function drawWavesPixels() {
+        for( var x=0; x<canvasWidth; x+=1 ) {
+            var waveDensity, waveDistance, waveDensity2Back, waveDensityInterp;
+            for( var y=0; y<canvasHeight; y+=1 ) {
+                waveDensity2Back = waveDensity;
+                waveDensity = 0;
+                for( var i=0; i<waves.length; i++ ) {
+                    waveDistance = waves[i].radius-findDistance( x, y, waves[i].x, waves[i].y );
+                    if(Math.abs(waveDistance) < 12*waveWidth) {waveDensity += waves[i].height*calculateWaveDensity(waveDistance, waveWidth, waves[i]);}
+                }
+                waveDensity = 245-Math.min(255*Math.abs(waveDensity));
+
+                setPixel( imageData, x, y, waveDensity, waveDensity, 255, 255);
+                //waveDensityInterp = (waveDensity + waveDensity2Back)/2;
+                //setPixel( imageData, x, y-1, waveDensityInterp, waveDensityInterp, 255, 255);
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+
+    function addReboundWaves(wave) {
+        if (wave.height < 8*waveDisapearHeight) {
+            return;
+        }
+        (!wave.leftRebound) && (wave.x - wave.radius < 0) && (pushNewWave(0, wave.y, wave.height/2, 0)) && (wave.leftRebound = true);
+
+        (!wave.rightRebound) && (wave.x + wave.radius > canvasWidth) && (pushNewWave(canvasWidth, wave.y, wave.height/2, 0)) && (wave.rightRebound = true);
+
+        (!wave.topRebound) && (wave.y - wave.radius < 0) && (pushNewWave(wave.x, 0, wave.height/2, 0)) && (wave.topRebound = true);
+
+        (!wave.bottomRebound) && (wave.y + wave.radius > canvasHeight) && (pushNewWave(wave.x, canvasHeight, wave.height/2, 0)) && (wave.bottomRebound = true);
+    }
+
+    function pushNewWave( x, y, height, radius ) {
+
+        if(waves.length > maxNumberOfWaves ) return false;
+
+        var height = height || 0.8;
+        var radius = radius || 0;
+        waves.push({x:x,
+            y:y,
+            startTime:new Date().getTime(),
+            radius:radius,
+            height:height,
+            leftRebound: false,
+            rightRebound: false,
+            topRebound: false,
+            bottomRebound: false
+        });
+        return true;
+    }
+
+    function handleCanvasClick(evt) {
+        evt = evt || window.event;
+        var liElm = evt.target || evt.srcElement;
+
+        posX = evt.offsetX ? (evt.offsetX) : evt.pageX - canvas.offsetLeft;
+        posY = evt.offsetY ? (evt.offsetY) : evt.pageY - canvas.offsetTop;
+        pushNewWave(posX, posY, 0.8, 0);
+    }
+
+    function calculateWaveDensity(distance, waveWidth, wave ) {
+        waveWidth = 3*waveWidth;
+        var modifier = Math.exp(-((distance-waveWidth/2)*(distance-waveWidth/2)) / ((waveWidth*waveWidth)));
+        if( wave.radius < waveWidth ) {
+            modifier = modifier*wave.radius*wave.radius/waveWidth/waveWidth;
+        }
+        return modifier * Math.sin(distance / 3);
+    }
+
+    function setPixel(imageData, x, y, r, g, b, a) {
+        index = (x + y * imageData.width) * 4;
+        imageData.data[index + 0] = r;
+        imageData.data[index + 1] = g;
+        imageData.data[index + 2] = b;
+        imageData.data[index + 3] = a;
+    }
+
+    function findDistance(x1, y1, x2, y2) {
+        return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    }
+
+    /**
+     * Provides requestAnimationFrame in a cross browser way.
+     */
+    window.requestAnimFrame = (function() {
+        return window.requestAnimationFrame ||
+            window.webkitRequestAnimationFrame ||
+            window.mozRequestAnimationFrame ||
+            window.oRequestAnimationFrame ||
+            window.msRequestAnimationFrame ||
+            function( callback, element) {
+                window.setTimeout(callback, 1000/28);
+            };
+    })();
+
+</script>
+</body>
+</html>
